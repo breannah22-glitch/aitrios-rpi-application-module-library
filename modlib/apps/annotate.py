@@ -389,14 +389,23 @@ class Annotator:
                 continue
 
             label = f"{class_id}" if (labels is None or len(detections) != len(labels)) else labels[i]
-            self.set_label(
-                image=frame.image,
-                x=x1 - math.ceil(self.thickness / 2),
-                y=y1 - math.ceil(self.thickness / 2),
-                color=c.as_bgr(),
-                label=label,
-            )
 
+            # 1. Create and rotate the text patch
+            font, scale, thick = cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1
+            (w, h), bl = cv2.getTextSize(label, font, scale, thick)
+            patch = np.zeros((h + bl, w, 3), dtype=np.uint8)
+        
+            cv2.putText(patch, label, (0, h), font, scale, c.as_bgr(), thick)
+            flipped_label = cv2.rotate(patch, cv2.ROTATE_180)
+
+            # 2. Paste the "sticker" onto the frame
+            tx = x1 - math.ceil(self.thickness / 2)
+            ty = y1 - math.ceil(self.thickness / 2) - (h + bl)
+        
+            # Slicing modifies frame.image directly
+            frame.image[ty:ty+(h+bl), tx:tx+w] = flipped_label
+
+        # 3. CRITICAL: Return the modified image at the very end
         return frame.image
 
     def rounded_rectangle(
